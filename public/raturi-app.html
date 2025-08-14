@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raturi App - Military Logistics</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <!-- Leaflet Routing Machine CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .app-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            color: #4ade80;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #e5e5e5;
+        }
+
+        input[type="text"], input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #404040;
+            border-radius: 8px;
+            background: #2a2a2a;
+            color: #ffffff;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="text"]:focus, input[type="password"]:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 1rem;
+        }
+
+        .btn-primary {
+            background: #4ade80;
+            color: #1a1a1a;
+        }
+
+        .btn-primary:hover {
+            background: #22c55e;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #374151;
+            color: #ffffff;
+            border: 2px solid #4b5563;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+            transform: translateY(-2px);
+        }
+
+        .category-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .category-btn {
+            padding: 2rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .error-message {
+            color: #ef4444;
+            text-align: center;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .map-container {
+            width: 100%;
+            height: 70vh;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .search-container {
+            margin-bottom: 1rem;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #374151;
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .back-btn:hover {
+            background: #4b5563;
+        }
+
+        .loading {
+            text-align: center;
+            color: #4ade80;
+            margin: 2rem 0;
+        }
+
+        @media (min-width: 768px) {
+            .container {
+                max-width: 500px;
+            }
+            
+            .map-container {
+                height: 60vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="loginScreen" class="screen active">
+        <div class="container">
+            <h1 class="app-title">Raturi App</h1>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="armyNumber">Army Number</label>
+                    <input type="text" id="armyNumber" placeholder="Enter Army Number" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Login</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Category Selection Screen -->
+    <div id="categoryScreen" class="screen">
+        <div class="container">
+            <button class="back-btn" onclick="showScreen('loginScreen')">← Back</button>
+            <h1 class="app-title">Select Category</h1>
+            <div class="category-buttons">
+                <button class="btn btn-secondary category-btn" onclick="selectCategory('hotels')">
+                    🏨 Hotels<br><small>For Troops</small>
+                </button>
+                <button class="btn btn-secondary category-btn" onclick="selectCategory('mt')">
+                    🚛 MT<br><small>Vehicle</small>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Screen -->
+    <div id="mapScreen" class="screen">
+        <div class="container" style="max-width: 100%; padding: 10px;">
+            <button class="back-btn" onclick="showScreen('categoryScreen')">← Back</button>
+            <h2 id="mapTitle" style="text-align: center; margin: 20px 0; color: #4ade80;"></h2>
+            <div class="search-container">
+                <input type="text" id="locationSearch" placeholder="Search location..." 
+                       style="width: 100%; padding: 10px; border-radius: 6px; border: 2px solid #404040; background: #2a2a2a; color: #fff;">
+            </div>
+            <div id="loadingMessage" class="loading">Getting your location...</div>
+            <div id="mapContainer" class="map-container" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Leaflet Routing Machine JS -->
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        let map;
+        let userLocation;
+        let currentCategory;
+        let markers = [];
+        let routingControl;
+
+        // Demo data
+        const hotelLocations = [
+            { lat: 28.6139, lng: 77.2090, name: "Army Guest House Delhi", address: "Connaught Place, New Delhi" },
+            { lat: 28.5355, lng: 77.3910, name: "Military Station Guesthouse", address: "Noida Sector 62" },
+            { lat: 28.7041, lng: 77.1025, name: "Cantonment Lodge", address: "Delhi Cantonment" }
+        ];
+
+        const mtLocations = [
+            { lat: 28.6304, lng: 77.2177, name: "MT Depot Central", address: "Rajpath, New Delhi" },
+            { lat: 28.5244, lng: 77.1855, name: "Vehicle Maintenance Unit", address: "Vasant Kunj" },
+            { lat: 28.6692, lng: 77.4538, name: "Transport Command", address: "Ghaziabad" }
+        ];
+
+        // Show specific screen
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        // Login form handler
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const armyNumber = document.getElementById('armyNumber').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('loginError');
+            
+            if (armyNumber === 'LAS1BC4' && password === 'lakshay123') {
+                errorDiv.textContent = '';
+                showScreen('categoryScreen');
+            } else {
+                errorDiv.textContent = 'Invalid credentials. Please try again.';
+            }
+        });
+
+        // Category selection
+        function selectCategory(category) {
+            currentCategory = category;
+            document.getElementById('mapTitle').textContent = 
+                category === 'hotels' ? 'Hotels for Troops' : 'MT Vehicles';
+            showScreen('mapScreen');
+            initializeMap();
+        }
+
+        // Initialize map
+        function initializeMap() {
+            document.getElementById('loadingMessage').style.display = 'block';
+            document.getElementById('mapContainer').style.display = 'none';
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        userLocation = [position.coords.latitude, position.coords.longitude];
+                        setupMap();
+                    },
+                    function(error) {
+                        console.error('Geolocation error:', error);
+                        // Fallback to Delhi coordinates
+                        userLocation = [28.6139, 77.2090];
+                        setupMap();
+                    }
+                );
+            } else {
+                // Fallback to Delhi coordinates
+                userLocation = [28.6139, 77.2090];
+                setupMap();
+            }
+        }
+
+        // Setup map with markers
+        function setupMap() {
+            document.getElementById('loadingMessage').style.display = 'none';
+            document.getElementById('mapContainer').style.display = 'block';
+
+            // Initialize map
+            map = L.map('mapContainer').setView(userLocation, 12);
+
+            // Add tile layer
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add user location marker
+            L.marker(userLocation, {
+                icon: L.icon({
+                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41]
+                })
+            }).addTo(map).bindPopup('Your Location').openPopup();
+
+            // Add category-specific markers
+            const locations = currentCategory === 'hotels' ? hotelLocations : mtLocations;
+            
+            locations.forEach(location => {
+                const marker = L.marker([location.lat, location.lng], {
+                    icon: L.icon({
+                        iconUrl: currentCategory === 'hotels' 
+                            ? 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png'
+                            : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+
+                marker.bindPopup(`
+                    <div style="text-align: center;">
+                        <h3 style="margin: 0 0 10px 0; color: #333;">${location.name}</h3>
+                        <p style="margin: 0 0 10px 0; color: #666;">${location.address}</p>
+                        <button onclick="navigateToLocation(${location.lat}, ${location.lng}, '${location.name}')" 
+                                style="background: #4ade80; color: #1a1a1a; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            Navigate Here
+                        </button>
+                    </div>
+                `);
+
+                markers.push(marker);
+            });
+        }
+
+        // Navigate to selected location
+        function navigateToLocation(lat, lng, name) {
+            // Remove existing routing control if any
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+
+            // Add routing control
+            routingControl = L.Routing.control({
+                waypoints: [
+                    L.latLng(userLocation[0], userLocation[1]),
+                    L.latLng(lat, lng)
+                ],
+                routeWhileDragging: false,
+                addWaypoints: false,
+                createMarker: function() { return null; }, // Don't create additional markers
+                lineOptions: {
+                    styles: [{ color: '#4ade80', weight: 4, opacity: 0.8 }]
+                }
+            }).addTo(map);
+
+            // Show success message
+            alert(`Navigation started to ${name}`);
+        }
+
+        // Location search functionality
+        document.getElementById('locationSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    searchLocation(query);
+                }
+            }
+        });
+
+        // Simple location search (using Nominatim API)
+        function searchLocation(query) {
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const result = data[0];
+                        const lat = parseFloat(result.lat);
+                        const lng = parseFloat(result.lon);
+                        
+                        map.setView([lat, lng], 15);
+                        
+                        // Add temporary marker for searched location
+                        const searchMarker = L.marker([lat, lng]).addTo(map)
+                            .bindPopup(`<b>${result.display_name}</b>`)
+                            .openPopup();
+                        
+                        // Remove the marker after 5 seconds
+                        setTimeout(() => {
+                            map.removeLayer(searchMarker);
+                        }, 5000);
+                    } else {
+                        alert('Location not found. Please try a different search term.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Search error:', error);
+                    alert('Search failed. Please try again.');
+                });
+        }
+    </script>
+</body>
+</html>
